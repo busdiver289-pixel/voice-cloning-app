@@ -1,95 +1,62 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional
-import json
+# Personal Voice Lab
 
-from voice_engine import generate_clone_audio
+A personal, local-only voice lab for experimenting with voice profiles and speech preview. This app is designed to stay on your own machine and keep your work private.
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / "voice_profile.json"
+## What it does
 
-app = FastAPI(title="VoiceClone Lab", version="1.1.0")
+- record your voice sample from the microphone
+- upload a reference audio file
+- create and save multiple local voice profiles
+- tweak pitch and speaking rate
+- preview text in a voice-like style using browser text-to-speech
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+## Why this is personal-first
 
+- no login
+- no cloud upload required
+- no external API dependency by default
+- all profiles are saved in the browser local storage
+- everything stays on your machine
 
-class VoiceProfile(BaseModel):
-    name: str = "My Voice"
-    pitch: float = 1.0
-    rate: float = 1.0
-    duration: float = 0.0
-    tags: List[str] = Field(default_factory=lambda: ["Warm", "Conversational", "Balanced"])
-    sampleUrl: Optional[str] = None
+## Run locally
 
+1. Create a virtual environment:
 
-def load_profile() -> VoiceProfile:
-    if DATA_FILE.exists():
-        try:
-            raw = json.loads(DATA_FILE.read_text())
-            return VoiceProfile(**raw)
-        except Exception:
-            pass
-    return VoiceProfile()
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
+2. Install the app dependencies:
 
-@app.get("/api/health")
-def health() -> dict:
-    return {"status": "ok", "message": "VoiceClone Lab API is running."}
+```bash
+pip install -r requirements.txt
+```
 
+3. Start the app:
 
-@app.get("/api/profile")
-def get_profile() -> dict:
-    return load_profile().model_dump()
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
 
+4. Open in your browser:
 
-@app.post("/api/profile")
-def save_profile(profile: VoiceProfile) -> dict:
-    DATA_FILE.write_text(json.dumps(profile.model_dump(), indent=2))
-    return profile.model_dump()
+```text
+http://localhost:8000
+```
 
+## Notes
 
-@app.post("/api/generate")
-def generate_clone(payload: dict) -> dict:
-    text = str(payload.get("text", "")).strip()
-    if not text:
-        return {"status": "error", "message": "Text is required."}
+This is a demo/local app for personal experimentation. It is not a production AI voice cloning system. It gives you a clean workflow for voice profile testing and preview generation without forcing you into a hosted SaaS model.
 
-    profile = load_profile()
-    synth = generate_clone_audio(
-        text=text,
-        profile=profile.model_dump(),
-        output_path=str(BASE_DIR / "generated_voice.wav"),
-    )
+## Project structure
 
-    result = {
-        "status": synth.get("status", "ok"),
-        "message": synth.get("message", "Clone generation request accepted."),
-        "backend": synth.get("backend", "browser"),
-        "profile": profile.model_dump(),
-        "text": text,
-        "pitch": float(payload.get("pitch", profile.pitch)),
-        "rate": float(payload.get("rate", profile.rate)),
-    }
+- `app.py` — FastAPI backend and static file hosting
+- `index.html` — app layout
+- `styles.css` — personal UI styling
+- `app.js` — local profile management and speech preview logic
+- `requirements.txt` — Python dependencies
 
-    if synth.get("output"):
-        result["output"] = synth["output"]
+## License
 
-    return result
-
-
-app.mount("/", StaticFiles(directory=str(BASE_DIR), html=True), name="static")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+MIT
