@@ -1,0 +1,45 @@
+# VoiceClone Lab
+
+A lightweight browser-based voice profile demo that lets you:
+
+- record or upload a short voice sample
+- save a simple voice profile
+- generate synthetic speech using the saved voice settings
+
+This project is intentionally simple and educational. It uses browser speech synthesis and a local profile model rather than a production-grade ML voice cloning pipeline.
+
+## Features
+
+- microphone recording
+- audio file upload
+- profile saving in browser local storage
+- editable pitch and speaking rate controls
+- sample-based voice profile summary
+
+## Run locally
+
+From the project root:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000
+```
+
+## Notes
+
+This is a demo app for prototyping and learning. It does not perform true deep-learning voice cloning. Instead, it models a simplified "voice clone" experience using browser audio capture and speech synthesis settings.
+
+## Project files
+
+- `index.html` — app layout
+- `styles.css` — styling
+- `app.js` — recording, audio upload, and speech-generation logic
+
+## License
+
+MIT
