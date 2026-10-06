@@ -5,14 +5,12 @@
 :root {
   --bg: #0b1020;
   --panel: #121a2d;
-  --panel-alt: #1c2740;
   --primary: #7c9cff;
   --primary-strong: #5a7dff;
   --accent: #57d5c5;
   --text: #edf3ff;
   --muted: #a9b6d3;
   --border: rgba(255, 255, 255, 0.08);
-  --danger: #ff7a90;
   --shadow: 0 24px 60px rgba(9, 14, 29, 0.5);
 }
 

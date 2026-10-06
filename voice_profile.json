@@ -1,0 +1,54 @@
+# VoiceClone Lab
+
+A lightweight full-stack demo app for voice cloning workflows. It includes a FastAPI backend and a browser-based frontend for recording, saving profiles, and generating synthetic speech with the browser's text-to-speech engine.
+
+## Features
+
+- record a sample from the microphone
+- upload a reference audio file
+- save and load a voice profile via API
+- adjust pitch and speaking rate
+- generate text-to-speech in a cloned style
+
+## Run locally
+
+1. Create a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Start the API server:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+4. Open the app in your browser:
+
+```text
+http://localhost:8000
+```
+
+## Important note
+
+This is a demo/prototype. It simulates a voice cloning workflow, but it does not yet use a true deep-learning voice synthesis model. The design is intended to be a practical starting point for a production-grade app.
+
+## Project structure
+
+- `app.py` — FastAPI backend and static file hosting
+- `index.html` — frontend layout
+- `styles.css` — design and layout styles
+- `app.js` — recording, profile management, and speech generation logic
+- `requirements.txt` — Python dependency list
+
+## License
+
+MIT
