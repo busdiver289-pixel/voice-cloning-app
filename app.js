@@ -130,6 +130,12 @@ textarea {
   gap: 12px;
 }
 
+.compact-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .primary,
 .secondary,
 .mini-button {
@@ -301,12 +307,14 @@ input[type="range"] {
   }
 
   .slider-grid,
-  .metrics {
+  .metrics,
+  .compact-row {
     grid-template-columns: 1fr;
   }
 
   .recording-controls,
-  .action-row {
+  .action-row,
+  .compact-row {
     flex-direction: column;
   }
 }

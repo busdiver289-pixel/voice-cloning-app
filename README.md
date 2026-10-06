@@ -33,6 +33,8 @@ const stopButton = document.getElementById('stopButton');
 const generateButton = document.getElementById('generateButton');
 const stopSpeechButton = document.getElementById('stopSpeechButton');
 const saveProfileButton = document.getElementById('saveProfileButton');
+const exportProfileButton = document.getElementById('exportProfileButton');
+const downloadAudioButton = document.getElementById('downloadAudioButton');
 const profileList = document.getElementById('profileList');
 const newProfileButton = document.getElementById('newProfileButton');
 
@@ -136,6 +138,42 @@ function analyzeVoiceProfile(durationSeconds) {
   ];
   const index = Math.min(Math.floor(durationSeconds / 4), presets.length - 1);
   return presets[index];
+}
+
+function exportProfile() {
+  const profile = {
+    id: state.profileId || `profile-${Date.now()}`,
+    name: profileNameInput.value || 'My Voice',
+    notes: notesInput.value || '',
+    pitch: Number(pitchSlider.value),
+    rate: Number(rateSlider.value),
+    duration: Number(state.profile.duration || 0),
+    tags: state.profile.tags || ['Warm', 'Conversational', 'Balanced'],
+    sampleUrl: state.profile.sampleUrl || '',
+    exportedAt: new Date().toISOString(),
+  };
+
+  const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${profile.name.toLowerCase().replace(/\s+/g, '-') || 'voice-profile'}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Exported ${profile.name} profile JSON.`);
+}
+
+function downloadSampleAudio() {
+  if (!state.profile.sampleUrl) {
+    setStatus('No sample audio is available to download yet.');
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.href = state.profile.sampleUrl;
+  link.download = `${(state.profile.name || 'voice-sample').toLowerCase().replace(/\s+/g, '-')}.webm`;
+  link.click();
+  setStatus('Sample audio download started.');
 }
 
 function saveProfile() {
@@ -297,6 +335,8 @@ stopSpeechButton.addEventListener('click', () => {
 });
 
 saveProfileButton.addEventListener('click', saveProfile);
+exportProfileButton.addEventListener('click', exportProfile);
+downloadAudioButton.addEventListener('click', downloadSampleAudio);
 newProfileButton.addEventListener('click', newProfile);
 audioUploadInput.addEventListener('change', handleUpload);
 

@@ -71,7 +71,12 @@
             </div>
           </div>
 
-          <button id="saveProfileButton" class="secondary full-width">Save local profile</button>
+          <div class="action-row compact-row">
+            <button id="saveProfileButton" class="secondary full-width">Save local profile</button>
+            <button id="exportProfileButton" class="secondary full-width">Export JSON</button>
+          </div>
+
+          <button id="downloadAudioButton" class="secondary full-width">Download sample audio</button>
         </section>
 
         <section class="panel right-panel">
