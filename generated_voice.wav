@@ -1,0 +1,71 @@
+# VoiceClone Lab
+
+A browser-first voice cloning prototype with a FastAPI backend and a model-ready synthesis pipeline. It works as a polished demo app out of the box and can be upgraded to a real open-source TTS/voice-cloning backend when `XTTS` is configured.
+
+## What it does
+
+- record or upload a reference voice sample
+- save a voice profile through the API
+- adjust pitch and speaking rate
+- generate text-to-speech in a "clone-like" style
+- support a real open-source backend via the `VOICE_BACKEND=xtts` mode
+
+## Run locally
+
+1. Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Start the app:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+4. Open:
+
+```text
+http://localhost:8000
+```
+
+## Optional real voice-cloning backend
+
+To enable a model-backed synthesis flow, install a local open-source TTS library and set:
+
+```bash
+export VOICE_BACKEND=xtts
+```
+
+Then install the voice synthesis package, for example:
+
+```bash
+pip install TTS
+```
+
+This app is structured so the generation endpoint can call an XTTS-style model when configured, while retaining the browser speech-synthesis demo as a fallback.
+
+## Important note
+
+This is still a prototype and demo tool. It is designed as a practical starter for a production voice-cloning app, but the default mode intentionally uses browser speech synthesis for reliability. A true AI voice clone requires a trained open-source model, a reference audio sample, and suitable runtime resources.
+
+## Project structure
+
+- `app.py` — FastAPI app and API endpoints
+- `voice_engine.py` — backend synthesis integration logic
+- `index.html` — web UI
+- `styles.css` — UI styling
+- `app.js` — browser behavior and API calls
+- `requirements.txt` — Python dependencies
+
+## License
+
+MIT
