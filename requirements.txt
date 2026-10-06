@@ -9,6 +9,8 @@ A personal, local-only voice lab for experimenting with voice profiles and speec
 - create and save multiple local voice profiles
 - tweak pitch and speaking rate
 - preview text in a voice-like style using browser text-to-speech
+- export profile JSON and sample audio locally
+- support a real local model backend using XTTS or Piper when installed
 
 ## Why this is personal-first
 
@@ -45,16 +47,52 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 http://localhost:8000
 ```
 
+## Real model backend (optional)
+
+This project is model-ready. The app defaults to browser speech synthesis for safe local usage, but it can switch to a real local open-source TTS backend.
+
+### XTTS backend
+
+Install the package:
+
+```bash
+pip install TTS
+```
+
+Then run:
+
+```bash
+export VOICE_BACKEND=xtts
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Optional model override:
+
+```bash
+export XTTS_MODEL=tts_models/multilingual/multi-dataset/xtts_v2
+```
+
+### Piper backend
+
+Install Piper on your machine, then run:
+
+```bash
+export VOICE_BACKEND=piper
+export PIPER_MODEL=/path/to/your/model.onnx
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
 ## Notes
 
-This is a demo/local app for personal experimentation. It is not a production AI voice cloning system. It gives you a clean workflow for voice profile testing and preview generation without forcing you into a hosted SaaS model.
+This is a personal prototype, not a public SaaS. It is meant for experimenting with voice profiles and preview generation in a private, local environment. Real voice cloning requires a trained model and a reference audio sample, but the app is structured to support that workflow when the right model tooling is installed.
 
 ## Project structure
 
 - `app.py` — FastAPI backend and static file hosting
+- `voice_engine.py` — backend synthesis integration logic
 - `index.html` — app layout
 - `styles.css` — personal UI styling
-- `app.js` — local profile management and speech preview logic
+- `app.js` — local profile management, export, and speech preview logic
 - `requirements.txt` — Python dependencies
 
 ## License
