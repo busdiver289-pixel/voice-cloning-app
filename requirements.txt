@@ -1,100 +1,504 @@
-# Personal Voice Lab
+const STORAGE_KEY = 'voice-lab-profiles';
+const HISTORY_KEY = 'voice-lab-history';
 
-A personal, local-only voice lab for experimenting with voice profiles and speech preview. This app is designed to stay on your own machine and keep your work private.
+const state = {
+  currentPage: 'studio',
+  profileId: null,
+  profile: null,
+  profiles: [],
+  history: [],
+  mediaRecorder: null,
+  audioChunks: [],
+  stream: null,
+};
 
-## What it does
+const navItems = document.querySelectorAll('.nav-item');
+const pages = document.querySelectorAll('.page');
 
-- record your voice sample from the microphone
-- upload a reference audio file
-- create and save multiple local voice profiles
-- tweak pitch and speaking rate
-- preview text in a voice-like style using browser text-to-speech
-- export profile JSON and sample audio locally
-- support a real local model backend using XTTS or Piper when installed
+const profileNameInput = document.getElementById('profileName');
+const notesInput = document.getElementById('notesInput');
+const recordButton = document.getElementById('recordButton');
+const stopButton = document.getElementById('stopButton');
+const audioUploadInput = document.getElementById('audioUpload');
+const audioPreview = document.getElementById('audioPreview');
+const sampleSummary = document.getElementById('sampleSummary');
+const styleTags = document.getElementById('styleTags');
+const pitchValue = document.getElementById('pitchValue');
+const rateValue = document.getElementById('rateValue');
+const durationValue = document.getElementById('durationValue');
+const pitchSlider = document.getElementById('pitchSlider');
+const rateSlider = document.getElementById('rateSlider');
+const pitchDisplay = document.getElementById('pitchDisplay');
+const rateDisplay = document.getElementById('rateDisplay');
+const scriptInput = document.getElementById('scriptInput');
+const statusText = document.getElementById('statusText');
+const generateButton = document.getElementById('generateButton');
+const stopSpeechButton = document.getElementById('stopSpeechButton');
+const saveProfileButton = document.getElementById('saveProfileButton');
+const exportProfileButton = document.getElementById('exportProfileButton');
+const downloadAudioButton = document.getElementById('downloadAudioButton');
+const newProfileButton = document.getElementById('newProfileButton');
+const importLibraryButton = document.getElementById('importLibraryButton');
+const exportLibraryButton = document.getElementById('exportLibraryButton');
+const profileLibrary = document.getElementById('profileLibrary');
+const historyContainer = document.getElementById('historyContainer');
+const clearHistoryButton = document.getElementById('clearHistoryButton');
+const clearAllDataButton = document.getElementById('clearAllDataButton');
 
-## Why this is personal-first
+function setStatus(message) {
+  statusText.textContent = message;
+}
 
-- no login
-- no cloud upload required
-- no external API dependency by default
-- all profiles are saved in the browser local storage
-- everything stays on your machine
+function getDefaultProfile() {
+  return {
+    id: `profile-${Date.now()}`,
+    name: 'My Voice',
+    notes: '',
+    pitch: 1.0,
+    rate: 1.0,
+    duration: 0,
+    tags: ['Warm', 'Conversational', 'Balanced'],
+    sampleUrl: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
 
-## Run locally
+function loadProfilesFromStorage() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return [getDefaultProfile()];
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [getDefaultProfile()];
+  } catch (e) {
+    console.error(e);
+    return [getDefaultProfile()];
+  }
+}
 
-1. Create a virtual environment:
+function saveProfilesToStorage(profiles) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+}
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+function loadHistoryFromStorage() {
+  const saved = localStorage.getItem(HISTORY_KEY);
+  if (!saved) return [];
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
 
-2. Install the app dependencies:
+function saveHistoryToStorage(history) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 100)));
+}
 
-```bash
-pip install -r requirements.txt
-```
+function analyzeVoiceProfile(durationSeconds) {
+  const presets = [
+    ['Warm', 'Conversational', 'Balanced'],
+    ['Focused', 'Clear', 'Confident'],
+    ['Bright', 'Energetic', 'Crisp'],
+  ];
+  const index = Math.min(Math.floor(durationSeconds / 4), presets.length - 1);
+  return presets[index];
+}
 
-3. Start the app:
+function switchPage(page) {
+  state.currentPage = page;
+  navItems.forEach((item) => item.classList.remove('active'));
+  const activeNav = document.querySelector(`[data-page="${page}"]`);
+  if (activeNav) activeNav.classList.add('active');
 
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-```
+  pages.forEach((p) => p.classList.remove('active'));
+  const target = document.querySelector(`.${page}-page`);
+  if (target) target.classList.add('active');
 
-4. Open in your browser:
+  if (page === 'library') renderLibrary();
+  if (page === 'history') renderHistory();
+}
 
-```text
-http://localhost:8000
-```
+function renderProfile() {
+  const p = state.profile || getDefaultProfile();
+  profileNameInput.value = p.name;
+  notesInput.value = p.notes || '';
+  pitchSlider.value = p.pitch || 1.0;
+  rateSlider.value = p.rate || 1.0;
+  pitchValue.textContent = (p.pitch || 1.0).toFixed(1);
+  rateValue.textContent = (p.rate || 1.0).toFixed(1);
+  pitchDisplay.textContent = (p.pitch || 1.0).toFixed(1);
+  rateDisplay.textContent = (p.rate || 1.0).toFixed(1);
+  durationValue.textContent = `${(p.duration || 0).toFixed(1)}s`;
 
-## Real model backend (optional)
+  styleTags.innerHTML = '';
+  (p.tags || ['Warm', 'Conversational', 'Balanced']).forEach((tag) => {
+    const li = document.createElement('li');
+    li.textContent = tag;
+    styleTags.appendChild(li);
+  });
 
-This project is model-ready. The app defaults to browser speech synthesis for safe local usage, but it can switch to a real local open-source TTS backend.
+  if (p.sampleUrl) {
+    audioPreview.src = p.sampleUrl;
+    audioPreview.classList.remove('hidden');
+    sampleSummary.textContent = `${(p.duration || 0).toFixed(1)}s sample`;
+  } else {
+    audioPreview.classList.add('hidden');
+    sampleSummary.textContent = 'No sample yet';
+  }
+}
 
-### XTTS backend
+function saveProfile() {
+  if (!state.profile) state.profile = getDefaultProfile();
+  state.profile.name = profileNameInput.value || 'My Voice';
+  state.profile.notes = notesInput.value || '';
+  state.profile.pitch = Number(pitchSlider.value);
+  state.profile.rate = Number(rateSlider.value);
+  state.profile.updatedAt = new Date().toISOString();
 
-Install the package:
+  const index = state.profiles.findIndex((p) => p.id === state.profile.id);
+  if (index >= 0) {
+    state.profiles[index] = state.profile;
+  } else {
+    state.profiles.push(state.profile);
+  }
 
-```bash
-pip install TTS
-```
+  saveProfilesToStorage(state.profiles);
+  renderProfile();
+  renderLibrary();
+  setStatus(`Saved "${state.profile.name}" successfully.`);
+}
 
-Then run:
+function deleteProfile(profileId) {
+  state.profiles = state.profiles.filter((p) => p.id !== profileId);
+  saveProfilesToStorage(state.profiles);
+  if (state.profile?.id === profileId) {
+    state.profile = state.profiles[0] || getDefaultProfile();
+    state.profileId = state.profile.id;
+  }
+  renderLibrary();
+  renderProfile();
+  setStatus('Profile deleted.');
+}
 
-```bash
-export VOICE_BACKEND=xtts
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-```
+function loadProfile(profileId) {
+  const profile = state.profiles.find((p) => p.id === profileId);
+  if (profile) {
+    state.profile = { ...profile };
+    state.profileId = profile.id;
+    renderProfile();
+    setStatus(`Loaded "${profile.name}".`);
+  }
+}
 
-Optional model override:
+function exportProfile() {
+  if (!state.profile) return;
+  const blob = new Blob([JSON.stringify(state.profile, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.profile.name.toLowerCase().replace(/\s+/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('Profile exported as JSON.');
+}
 
-```bash
-export XTTS_MODEL=tts_models/multilingual/multi-dataset/xtts_v2
-```
+function downloadAudio() {
+  if (!state.profile?.sampleUrl) {
+    setStatus('No sample audio to download.');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = state.profile.sampleUrl;
+  a.download = `${state.profile.name.toLowerCase().replace(/\s+/g, '-')}-sample.webm`;
+  a.click();
+  setStatus('Sample audio download started.');
+}
 
-### Piper backend
+function newProfile() {
+  state.profile = getDefaultProfile();
+  state.profileId = state.profile.id;
+  renderProfile();
+  setStatus('Created new profile.');
+}
 
-Install Piper on your machine, then run:
+function renderLibrary() {
+  profileLibrary.innerHTML = '';
+  state.profiles.forEach((profile) => {
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    const isActive = state.profile?.id === profile.id;
+    card.style.borderColor = isActive ? 'var(--primary)' : '';
+    card.innerHTML = `
+      <h4>${profile.name}</h4>
+      <div class="profile-card-meta">
+        <span>${profile.tags?.join(', ') || 'Warm'}</span>
+        <span>${new Date(profile.updatedAt).toLocaleDateString()}</span>
+      </div>
+      <p style="margin: 0; font-size: 0.9rem; color: var(--muted);">${profile.notes || 'No notes'}</p>
+      <div class="profile-card-actions">
+        <button class="btn btn-primary">Use</button>
+        <button class="btn btn-secondary">Delete</button>
+      </div>
+    `;
+    card.querySelector('.btn-primary').addEventListener('click', () => loadProfile(profile.id));
+    card.querySelector('.btn-secondary').addEventListener('click', () => {
+      if (confirm('Delete this profile?')) deleteProfile(profile.id);
+    });
+    profileLibrary.appendChild(card);
+  });
+}
 
-```bash
-export VOICE_BACKEND=piper
-export PIPER_MODEL=/path/to/your/model.onnx
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-```
+function exportLibrary() {
+  const blob = new Blob([JSON.stringify({ profiles: state.profiles }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `voice-lab-library-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('Library exported as JSON.');
+}
 
-## Notes
+async function startRecording() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('Microphone not supported.');
+    return;
+  }
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    state.mediaRecorder = new MediaRecorder(state.stream);
+    state.audioChunks = [];
 
-This is a personal prototype, not a public SaaS. It is meant for experimenting with voice profiles and preview generation in a private, local environment. Real voice cloning requires a trained model and a reference audio sample, but the app is structured to support that workflow when the right model tooling is installed.
+    state.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) state.audioChunks.push(e.data);
+    };
 
-## Project structure
+    state.mediaRecorder.onstop = () => {
+      const blob = new Blob(state.audioChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const duration = blob.size / 1000;
 
-- `app.py` — FastAPI backend and static file hosting
-- `voice_engine.py` — backend synthesis integration logic
-- `index.html` — app layout
-- `styles.css` — personal UI styling
-- `app.js` — local profile management, export, and speech preview logic
-- `requirements.txt` — Python dependencies
+      if (!state.profile) state.profile = getDefaultProfile();
+      state.profile.sampleUrl = url;
+      state.profile.duration = duration;
+      state.profile.tags = analyzeVoiceProfile(duration);
+      state.profile.name = profileNameInput.value || 'My Voice';
+      state.profile.pitch = Number(pitchSlider.value);
+      state.profile.rate = Number(rateSlider.value);
 
-## License
+      renderProfile();
+      setStatus('Voice sample captured.');
+      stopStream();
+    };
 
-MIT
+    state.mediaRecorder.start();
+    recordButton.classList.add('hidden');
+    stopButton.classList.remove('hidden');
+    setStatus('Recording... speak for a few seconds.');
+  } catch (e) {
+    console.error(e);
+    setStatus('Microphone access denied.');
+  }
+}
+
+function stopRecording() {
+  if (state.mediaRecorder?.state === 'recording') {
+    state.mediaRecorder.stop();
+  }
+  recordButton.classList.remove('hidden');
+  stopButton.classList.add('hidden');
+}
+
+function stopStream() {
+  if (state.stream) {
+    state.stream.getTracks().forEach((track) => track.stop());
+  }
+}
+
+function handleAudioUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const audio = new Audio(url);
+  audio.onloadedmetadata = () => {
+    if (!state.profile) state.profile = getDefaultProfile();
+    state.profile.sampleUrl = url;
+    state.profile.duration = audio.duration || 0;
+    state.profile.tags = analyzeVoiceProfile(state.profile.duration);
+    renderProfile();
+    setStatus('Reference audio loaded.');
+  };
+}
+
+function generatePreview() {
+  const text = scriptInput.value.trim();
+  if (!text) {
+    setStatus('Add text before generating.');
+    return;
+  }
+  if (!('speechSynthesis' in window)) {
+    setStatus('Text-to-speech not supported.');
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.pitch = Number(pitchSlider.value);
+  utterance.rate = Number(rateSlider.value);
+  utterance.volume = 1;
+
+  const voices = window.speechSynthesis.getVoices();
+  const voice = voices.find((v) => v.lang.startsWith('en')) || voices[0];
+  if (voice) utterance.voice = voice;
+
+  setStatus('Generating preview...');
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+
+  utterance.onend = () => {
+    if (state.profile) {
+      const histItem = {
+        id: `audio-${Date.now()}`,
+        text,
+        profileId: state.profile.id,
+        profileName: state.profile.name,
+        pitch: Number(pitchSlider.value),
+        rate: Number(rateSlider.value),
+        generatedAt: new Date().toISOString(),
+        backend: 'browser',
+      };
+      state.history.unshift(histItem);
+      saveHistoryToStorage(state.history);
+      renderHistory();
+    }
+    setStatus('Preview finished.');
+  };
+}
+
+function renderHistory() {
+  historyContainer.innerHTML = '';
+  if (state.history.length === 0) {
+    historyContainer.innerHTML = '<p style="color: var(--muted);">No generation history yet.</p>';
+    return;
+  }
+  state.history.forEach((item) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="history-item-content">
+        <p class="history-item-text">"${item.text.substring(0, 100)}${item.text.length > 100 ? '...' : ''}"</p>
+        <p class="history-item-meta">${item.profileName} • ${new Date(item.generatedAt).toLocaleDateString()}</p>
+      </div>
+      <div class="history-item-actions">
+        <button class="btn btn-secondary">Play</button>
+        <button class="btn btn-danger">Delete</button>
+      </div>
+    `;
+    div.querySelector('.btn-secondary').addEventListener('click', () => {
+      const utterance = new SpeechSynthesisUtterance(item.text);
+      utterance.pitch = item.pitch;
+      utterance.rate = item.rate;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    });
+    div.querySelector('.btn-danger').addEventListener('click', () => {
+      state.history = state.history.filter((h) => h.id !== item.id);
+      saveHistoryToStorage(state.history);
+      renderHistory();
+    });
+    historyContainer.appendChild(div);
+  });
+}
+
+navItems.forEach((item) => {
+  item.addEventListener('click', () => switchPage(item.dataset.page));
+});
+
+recordButton.addEventListener('click', startRecording);
+stopButton.addEventListener('click', stopRecording);
+audioUploadInput.addEventListener('change', handleAudioUpload);
+
+saveProfileButton.addEventListener('click', saveProfile);
+exportProfileButton.addEventListener('click', exportProfile);
+downloadAudioButton.addEventListener('click', downloadAudio);
+newProfileButton.addEventListener('click', newProfile);
+exportLibraryButton.addEventListener('click', exportLibrary);
+importLibraryButton.addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      const profiles = Array.isArray(data?.profiles) ? data.profiles : [];
+      state.profiles = profiles.length ? profiles : [getDefaultProfile()];
+      saveProfilesToStorage(state.profiles);
+      state.profile = state.profiles[0];
+      renderProfile();
+      renderLibrary();
+      setStatus('Library imported.');
+    } catch (err) {
+      setStatus('Import failed. Please use a valid library JSON file.');
+    }
+  };
+  input.click();
+});
+
+generateButton.addEventListener('click', generatePreview);
+stopSpeechButton.addEventListener('click', () => {
+  window.speechSynthesis.cancel();
+  setStatus('Playback stopped.');
+});
+
+clearHistoryButton.addEventListener('click', () => {
+  if (confirm('Clear all history?')) {
+    state.history = [];
+    saveHistoryToStorage(state.history);
+    renderHistory();
+    setStatus('History cleared.');
+  }
+});
+
+clearAllDataButton.addEventListener('click', () => {
+  if (confirm('Delete ALL profiles, history, and settings? This cannot be undone.')) {
+    localStorage.clear();
+    state.profiles = [getDefaultProfile()];
+    state.profile = state.profiles[0];
+    state.history = [];
+    saveProfilesToStorage(state.profiles);
+    saveHistoryToStorage(state.history);
+    renderProfile();
+    renderLibrary();
+    renderHistory();
+    setStatus('All data cleared.');
+  }
+});
+
+pitchSlider.addEventListener('input', () => {
+  pitchDisplay.textContent = Number(pitchSlider.value).toFixed(1);
+  pitchValue.textContent = Number(pitchSlider.value).toFixed(1);
+  if (state.profile) {
+    state.profile.pitch = Number(pitchSlider.value);
+  }
+});
+
+rateSlider.addEventListener('input', () => {
+  rateDisplay.textContent = Number(rateSlider.value).toFixed(1);
+  rateValue.textContent = Number(rateSlider.value).toFixed(1);
+  if (state.profile) {
+    state.profile.rate = Number(rateSlider.value);
+  }
+});
+
+state.profiles = loadProfilesFromStorage();
+state.profile = state.profiles[0] || getDefaultProfile();
+state.profileId = state.profile.id;
+state.history = loadHistoryFromStorage();
+renderProfile();
+renderLibrary();
+renderHistory();
+setStatus('Ready.');

@@ -1,128 +1,146 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+import os
+import shutil
 from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-import json
+from typing import Any, Dict, Optional
 
 BASE_DIR = Path(__file__).resolve().parent
-LIBRARY_FILE = BASE_DIR / "voice_library.json"
-
-app = FastAPI(title="Personal Voice Lab", version="1.2.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+OUTPUT_DIR = BASE_DIR / "generated_audio"
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-class VoiceProfile(BaseModel):
-    id: str = "default"
-    name: str = "My Voice"
-    pitch: float = 1.0
-    rate: float = 1.0
-    duration: float = 0.0
-    tags: List[str] = Field(default_factory=lambda: ["Warm", "Conversational", "Balanced"])
-    sampleUrl: Optional[str] = None
-    notes: str = ""
+def _backend() -> str:
+    return os.getenv("VOICE_BACKEND", "browser").lower()
 
 
-class ProfilePayload(BaseModel):
-    profile: VoiceProfile
+def build_voice_profile(profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    profile = profile or {}
+    return {
+        "id": profile.get("id", "profile-default"),
+        "name": profile.get("name", "My Voice"),
+        "notes": profile.get("notes", ""),
+        "pitch": float(profile.get("pitch", 1.0)),
+        "rate": float(profile.get("rate", 1.0)),
+        "duration": float(profile.get("duration", 0.0)),
+        "tags": profile.get("tags") or ["Warm", "Conversational", "Balanced"],
+        "sampleUrl": profile.get("sampleUrl") or "",
+    }
 
 
-def load_library() -> Dict[str, Any]:
-    if LIBRARY_FILE.exists():
+def _resolve_reference(profile: Dict[str, Any]) -> Optional[str]:
+    sample_url = str(profile.get("sampleUrl") or "").strip()
+    if sample_url.startswith("data:"):
+        return None
+    if sample_url.startswith("http"):
+        return sample_url
+
+    if sample_url:
+        p = Path(sample_url)
+        if p.exists():
+            return str(p)
+
+    candidates = [
+        BASE_DIR / "voice_reference.wav",
+        BASE_DIR / "sample.wav",
+        BASE_DIR / "reference.wav",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def generate_clone_audio(text: str, profile: Optional[Dict[str, Any]] = None, output_path: Optional[str] = None) -> Dict[str, Any]:
+    profile = build_voice_profile(profile)
+    backend = _backend()
+    output = Path(output_path) if output_path else OUTPUT_DIR / "generated_voice.wav"
+    output.parent.mkdir(exist_ok=True, parents=True)
+
+    if backend == "xtts":
         try:
-            return json.loads(LIBRARY_FILE.read_text())
-        except Exception:
-            return {"profiles": []}
-    return {"profiles": []}
+            from TTS.api import TTS
+        except Exception as exc:
+            return {
+                "status": "error",
+                "backend": backend,
+                "message": "XTTS backend is selected, but TTS is not installed.",
+                "details": str(exc),
+                "profile": profile,
+                "text": text,
+            }
 
+        model_name = os.getenv("XTTS_MODEL", "tts_models/multilingual/multi-dataset/xtts_v2")
+        reference = _resolve_reference(profile)
 
-def save_library(library: Dict[str, Any]) -> None:
-    LIBRARY_FILE.write_text(json.dumps(library, indent=2))
+        try:
+            tts = TTS(model_name=model_name, progress_bar=False, gpu=False)
+            kwargs = {"text": text, "file_path": str(output), "language": "en"}
+            if reference:
+                kwargs["speaker_wav"] = reference
+            tts.tts_to_file(**kwargs)
+            return {
+                "status": "ok",
+                "backend": backend,
+                "message": "Real XTTS model synthesis completed.",
+                "output": str(output),
+                "profile": profile,
+                "text": text,
+            }
+        except Exception as exc:
+            return {
+                "status": "error",
+                "backend": backend,
+                "message": "XTTS generation failed during model execution.",
+                "details": str(exc),
+                "profile": profile,
+                "text": text,
+            }
 
+    if backend == "piper":
+        binary = shutil.which("piper")
+        if not binary:
+            return {
+                "status": "error",
+                "backend": backend,
+                "message": "Piper CLI was not found. Install it or switch the backend to browser.",
+                "profile": profile,
+                "text": text,
+            }
 
-def default_profile() -> VoiceProfile:
-    return VoiceProfile(id="default", name="My Voice")
+        model = os.getenv("PIPER_MODEL")
+        if not model:
+            return {
+                "status": "error",
+                "backend": backend,
+                "message": "PIPER_MODEL is not set. Example: export PIPER_MODEL=/path/to/model.onnx",
+                "profile": profile,
+                "text": text,
+            }
 
+        try:
+            import subprocess
+            subprocess.run([binary, "--model", model, "--output_file", str(output)], input=text.encode("utf-8"), capture_output=True, check=True)
+            return {
+                "status": "ok",
+                "backend": backend,
+                "message": "Piper model synthesis completed.",
+                "output": str(output),
+                "profile": profile,
+                "text": text,
+            }
+        except Exception as exc:
+            return {
+                "status": "error",
+                "backend": backend,
+                "message": "Piper generation failed.",
+                "details": str(exc),
+                "profile": profile,
+                "text": text,
+            }
 
-@app.get("/api/health")
-def health() -> Dict[str, Any]:
-    return {"status": "ok", "message": "Personal voice lab is running."}
-
-
-@app.get("/api/profiles")
-def get_profiles() -> Dict[str, Any]:
-    library = load_library()
-    profiles = library.get("profiles", [])
-    if not profiles:
-        default = default_profile().model_dump()
-        library["profiles"] = [default]
-        save_library(library)
-        return library
-    return library
-
-
-@app.post("/api/profiles")
-def save_profiles(payload: ProfilePayload) -> Dict[str, Any]:
-    library = load_library()
-    profile = payload.profile
-    profiles = library.get("profiles", [])
-
-    existing = next((item for item in profiles if item.get("id") == profile.id), None)
-    if existing:
-        existing.update(profile.model_dump())
-    else:
-        profiles.append(profile.model_dump())
-
-    library["profiles"] = profiles
-    save_library(library)
-    return library
-
-
-@app.get("/api/profile/{profile_id}")
-def get_profile(profile_id: str) -> Dict[str, Any]:
-    library = load_library()
-    profiles = library.get("profiles", [])
-    for profile in profiles:
-        if profile.get("id") == profile_id:
-            return profile
-    return default_profile().model_dump()
-
-
-@app.post("/api/generate")
-def generate_clone(payload: dict) -> dict:
-    text = str(payload.get("text", "")).strip()
-    if not text:
-        return {"status": "error", "message": "Text is required."}
-
-    profile = payload.get("profile", {}) or {}
-    result = {
+    return {
         "status": "demo",
-        "backend": "browser",
-        "message": "Local demo mode active. Your browser is generating speech for preview.",
-        "profile": {
-            "name": profile.get("name", "My Voice"),
-            "pitch": float(profile.get("pitch", 1.0)),
-            "rate": float(profile.get("rate", 1.0)),
-            "duration": float(profile.get("duration", 0.0)),
-            "tags": profile.get("tags") or ["Warm", "Conversational", "Balanced"],
-        },
+        "backend": backend,
+        "message": "Local demo mode is active. Browser speech synthesis is used for preview playback. To enable a real model, set VOICE_BACKEND=xtts or VOICE_BACKEND=piper.",
+        "profile": profile,
         "text": text,
     }
-    return result
-
-
-app.mount("/", StaticFiles(directory=str(BASE_DIR), html=True), name="static")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

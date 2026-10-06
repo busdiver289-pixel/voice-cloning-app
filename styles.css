@@ -7,113 +7,160 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Personal</p>
-          <h1>Voice Lab</h1>
+    <div class="app-container">
+      <nav class="sidebar">
+        <div class="logo">
+          <h2>Voice Lab</h2>
+          <p class="tagline">Personal Edition</p>
         </div>
-        <div class="badge">Local only</div>
-      </header>
+        <div class="nav-menu">
+          <button class="nav-item active" data-page="studio">🎙️ Studio</button>
+          <button class="nav-item" data-page="library">📚 Library</button>
+          <button class="nav-item" data-page="history">⏱️ History</button>
+          <button class="nav-item" data-page="settings">⚙️ Settings</button>
+        </div>
+      </nav>
 
-      <main class="layout">
-        <section class="panel left-panel">
-          <h2>Voice profile</h2>
-
-          <div class="form-row">
-            <label for="profileName">Profile name</label>
-            <input id="profileName" type="text" value="My Voice" placeholder="Name this voice profile" />
+      <main class="main-content">
+        <div class="page studio-page active">
+          <div class="page-header">
+            <h1>Voice Studio</h1>
+            <p>Record, upload, and generate voice clones</p>
           </div>
 
-          <div class="form-row">
-            <label for="notesInput">Notes</label>
-            <textarea id="notesInput" rows="3" placeholder="Add notes about tone, style, or context..."></textarea>
-          </div>
-
-          <div class="recording-controls">
-            <button id="recordButton" class="primary">Record sample</button>
-            <button id="stopButton" class="secondary hidden">Stop</button>
-          </div>
-
-          <label class="upload-box" for="audioUpload">
-            <input id="audioUpload" type="file" accept="audio/*" />
-            <span>Upload reference audio</span>
-          </label>
-
-          <div class="reference-box">
-            <div class="meta-line">
-              <span>Reference audio</span>
-              <span id="sampleSummary">No sample yet</span>
-            </div>
-            <audio id="audioPreview" controls class="hidden"></audio>
-          </div>
-
-          <div class="profile-card">
-            <h3>Style summary</h3>
-            <ul id="styleTags" class="tag-list">
-              <li>Warm</li>
-              <li>Conversational</li>
-              <li>Balanced</li>
-            </ul>
-            <div class="metrics">
-              <div>
-                <span>Pitch</span>
-                <strong id="pitchValue">1.0</strong>
+          <div class="studio-grid">
+            <section class="studio-panel">
+              <h2>Voice Profile</h2>
+              <div class="form-group">
+                <label>Profile Name</label>
+                <input id="profileName" type="text" placeholder="Name this voice profile" />
               </div>
-              <div>
-                <span>Rate</span>
-                <strong id="rateValue">1.0</strong>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea id="notesInput" rows="3" placeholder="Add notes about tone, style, or context..."></textarea>
               </div>
-              <div>
-                <span>Duration</span>
-                <strong id="durationValue">0.0s</strong>
+              <div class="form-group">
+                <label>Recording Controls</label>
+                <div class="button-group">
+                  <button id="recordButton" class="btn btn-primary">🎤 Record Sample</button>
+                  <button id="stopButton" class="btn btn-secondary hidden">⏹️ Stop</button>
+                </div>
               </div>
+              <div class="form-group">
+                <label class="upload-label">Upload Reference Audio</label>
+                <input id="audioUpload" type="file" accept="audio/*" hidden />
+                <button type="button" class="btn btn-upload" onclick="document.getElementById('audioUpload').click()">
+                  📁 Choose File
+                </button>
+              </div>
+              <div class="audio-preview-box">
+                <div class="preview-header">
+                  <span>Reference Sample</span>
+                  <span id="sampleSummary">No sample yet</span>
+                </div>
+                <audio id="audioPreview" controls class="hidden"></audio>
+              </div>
+              <div class="profile-summary">
+                <h3>Voice Characteristics</h3>
+                <ul id="styleTags" class="tag-list"></ul>
+                <div class="metrics-grid">
+                  <div class="metric">
+                    <span>Pitch</span>
+                    <strong id="pitchValue">1.0</strong>
+                  </div>
+                  <div class="metric">
+                    <span>Rate</span>
+                    <strong id="rateValue">1.0</strong>
+                  </div>
+                  <div class="metric">
+                    <span>Duration</span>
+                    <strong id="durationValue">0.0s</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="button-group full-width">
+                <button id="saveProfileButton" class="btn btn-secondary full">💾 Save Profile</button>
+                <button id="exportProfileButton" class="btn btn-secondary full">📤 Export JSON</button>
+              </div>
+              <button id="downloadAudioButton" class="btn btn-secondary full-width">📥 Download Sample</button>
+            </section>
+
+            <section class="studio-panel">
+              <h2>Voice Generation</h2>
+              <div class="form-group">
+                <label>Script</label>
+                <textarea id="scriptInput" rows="6" placeholder="Type the text you want to hear...">Hi there, this is your personal voice lab preview.</textarea>
+              </div>
+              <div class="controls-grid">
+                <div class="form-group">
+                  <label>Pitch: <span id="pitchDisplay">1.0</span></label>
+                  <input id="pitchSlider" type="range" min="0.6" max="1.8" step="0.1" value="1.0" />
+                </div>
+                <div class="form-group">
+                  <label>Rate: <span id="rateDisplay">1.0</span></label>
+                  <input id="rateSlider" type="range" min="0.6" max="1.6" step="0.1" value="1.0" />
+                </div>
+              </div>
+              <div class="button-group full-width">
+                <button id="generateButton" class="btn btn-primary full">🎵 Generate Preview</button>
+                <button id="stopSpeechButton" class="btn btn-secondary full">⏹️ Stop</button>
+              </div>
+              <div class="status-panel">
+                <p class="status-label">Status</p>
+                <p id="statusText">Ready to generate voice</p>
+              </div>
+              <div class="backend-info">
+                <p id="backendInfo">Backend: Browser Speech Synthesis</p>
+                <small>Switch to XTTS or Piper for real voice cloning</small>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="page library-page hidden">
+          <div class="page-header">
+            <h1>Voice Library</h1>
+            <div class="header-actions">
+              <button id="newProfileButton" class="btn btn-primary">➕ New Profile</button>
+              <button id="importLibraryButton" class="btn btn-secondary">📥 Import</button>
+              <button id="exportLibraryButton" class="btn btn-secondary">📤 Export All</button>
             </div>
           </div>
+          <div id="profileLibrary" class="library-grid"></div>
+        </div>
 
-          <div class="action-row compact-row">
-            <button id="saveProfileButton" class="secondary full-width">Save local profile</button>
-            <button id="exportProfileButton" class="secondary full-width">Export JSON</button>
-          </div>
-
-          <button id="downloadAudioButton" class="secondary full-width">Download sample audio</button>
-        </section>
-
-        <section class="panel right-panel">
-          <h2>Voice preview</h2>
-
-          <label for="scriptInput">Script</label>
-          <textarea id="scriptInput" rows="8" placeholder="Type something you want to hear in your voice style...">Hi there, this is your personal voice lab preview.</textarea>
-
-          <div class="slider-grid">
-            <div>
-              <label for="pitchSlider">Pitch</label>
-              <input id="pitchSlider" type="range" min="0.6" max="1.8" step="0.1" value="1.0" />
-            </div>
-            <div>
-              <label for="rateSlider">Speaking rate</label>
-              <input id="rateSlider" type="range" min="0.6" max="1.6" step="0.1" value="1.0" />
+        <div class="page history-page hidden">
+          <div class="page-header">
+            <h1>Generation History</h1>
+            <div class="header-actions">
+              <button id="clearHistoryButton" class="btn btn-danger">🗑️ Clear All</button>
             </div>
           </div>
+          <div id="historyContainer" class="history-list"></div>
+        </div>
 
-          <div class="action-row">
-            <button id="generateButton" class="primary">Generate preview</button>
-            <button id="stopSpeechButton" class="secondary">Stop</button>
+        <div class="page settings-page hidden">
+          <div class="page-header">
+            <h1>Settings</h1>
           </div>
-
-          <div class="status-box">
-            <p class="status-label">Status</p>
-            <p id="statusText">Ready.</p>
-          </div>
-
-          <div class="profile-library-box">
-            <div class="library-header">
-              <h3>Saved profiles</h3>
-              <button id="newProfileButton" class="mini-button">New</button>
+          <div class="settings-panel">
+            <div class="setting-item">
+              <h3>Voice Backend</h3>
+              <p id="backendStatus">Browser Speech Synthesis (Demo Mode)</p>
+              <small>To enable real voice cloning, install XTTS or Piper and set VOICE_BACKEND environment variable.</small>
             </div>
-            <div id="profileList" class="profile-list"></div>
+            <div class="setting-item">
+              <h3>Storage</h3>
+              <button id="clearAllDataButton" class="btn btn-danger">⚠️ Clear All Local Data</button>
+              <small>This will delete all profiles, history, and settings. This action cannot be undone.</small>
+            </div>
+            <div class="setting-item">
+              <h3>About</h3>
+              <p>Personal Voice Lab v2.0</p>
+              <small>A private, local-only voice profile and generation tool.</small>
+            </div>
           </div>
-        </section>
+        </div>
       </main>
     </div>
 
